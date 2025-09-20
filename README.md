@@ -69,3 +69,52 @@ java-gui-learning/
 #### 이벤트 처리가 헷갈릴 때
 - 람다 표현식 vs 익명 클래스 선택 기준
 - ActionListener vs ItemListener 사용 시기
+
+### 참고한 자료
+- [Oracle Java Swing Tutorial](https://docs.oracle.com/javase/tutorial/uiswing/)
+- [JavaFX Documentation](https://openjfx.io/javadoc/11/)
+- YouTube 강의: [채널명](링크)
+- 블로그: [유용했던 블로그](링크)
+
+## 🏆 완성한 프로젝트
+
+### 1. 계산기 앱
+- **기간**: 2024.XX.XX ~ 2024.XX.XX
+- **사용 기술**: Swing, ActionListener
+- **배운 점**: 버튼 이벤트 처리, 계산 로직 구현
+- **아쉬운 점**: UI 디자인이 단조로움
+
+### 2. 간단한 텍스트 에디터
+- **기간**: 2024.XX.XX ~ 2024.XX.XX  
+- **사용 기술**: Swing, FileChooser, MenuBar
+- **배운 점**: 파일 입출력, 메뉴 구성
+- **개선할 점**: 단축키 추가 필요
+
+## 🤔 학습 회고
+
+### 잘했던 점
+- 꾸준히 commit 하면서 진행 상황 기록
+- 어려운 부분은 별도로 정리해서 나중에 참고할 수 있게 함
+
+### 개선할 점  
+- 주석을 더 자세히 달기
+- 각 예제마다 README 파일 추가하기
+- 스크린샷이나 실행 결과 이미지 첨부하기
+
+### 다음 목표
+- JavaFX로 더 모던한 UI 만들어보기
+- 데이터베이스 연동하는 GUI 애플리케이션 개발
+- 디자인 패턴 적용해보기
+
+## 📊 학습 통계
+- **총 학습 일수**: XX일
+- **작성한 클래스**: XX개
+- **완성한 미니 프로젝트**: X개
+- **총 커밋 수**: XX개
+
+---
+
+**Last Updated**: 2024.XX.XX  
+**Current Focus**: Swing 기초 컴포넌트 학습 중
+
+> 이 저장소는 개인 학습 기록용입니다. 코드나 내용에 대한 피드백은 언제나 환영합니다! 🙂
