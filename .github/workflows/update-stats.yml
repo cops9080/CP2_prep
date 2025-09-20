@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main, master ]
   schedule:
-    - cron: '0 0 * * *'  # 매일 자정에 실행
+    - cron: '0 0 * * *'
 
 jobs:
   update-stats:
@@ -15,7 +15,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # 전체 커밋 히스토리 가져오기
+        fetch-depth: 0
         
     - name: Update Statistics
       run: |
@@ -27,7 +27,7 @@ jobs:
         # 클래스 수 계산
         CLASS_COUNT=$(grep -r "^public class\|^class\|^abstract class" --include="*.java" . 2>/dev/null | wc -l)
         
-        # 프로젝트 수 계산 (Main.java, *App.java 파일이 있는 경우)
+        # 프로젝트 수 계산
         PROJECT_COUNT=$(find . -name "Main.java" -o -name "*App.java" 2>/dev/null | wc -l)
         
         # 총 커밋 수
@@ -49,63 +49,52 @@ jobs:
         
         echo "수집된 통계:"
         echo "- 학습 일수: $LEARNING_DAYS일"
-        echo "- Java 파일: $JAVA_FILES개"  
+        echo "- Java 파일: $JAVA_FILES개"
         echo "- 클래스: $CLASS_COUNT개"
         echo "- 프로젝트: $PROJECT_COUNT개"
         echo "- 총 커밋: $TOTAL_COMMITS개"
         echo "- 최근 커밋: $RECENT_COMMITS개"
         
-        # README.md 백업
-        cp README.md README.md.backup
-        
         # 새로운 통계 섹션 생성
-        cat > temp_stats.md << 'EOF'
-## 📊 학습 통계
-- **총 학습 일수**: LEARNING_DAYS_PLACEHOLDER일
-- **Java 파일 수**: JAVA_FILES_PLACEHOLDER개
-- **작성한 클래스**: CLASS_COUNT_PLACEHOLDER개
-- **완성한 프로젝트**: PROJECT_COUNT_PLACEHOLDER개
-- **총 커밋 수**: TOTAL_COMMITS_PLACEHOLDER개
-- **최근 7일 커밋**: RECENT_COMMITS_PLACEHOLDER개
+        STATS_CONTENT="## 📊 학습 통계
+        - **총 학습 일수**: ${LEARNING_DAYS}일
+        - **Java 파일 수**: ${JAVA_FILES}개
+        - **작성한 클래스**: ${CLASS_COUNT}개
+        - **완성한 프로젝트**: ${PROJECT_COUNT}개
+        - **총 커밋 수**: ${TOTAL_COMMITS}개
+        - **최근 7일 커밋**: ${RECENT_COMMITS}개
 
-**마지막 업데이트**: CURRENT_DATE_PLACEHOLDER
+        **마지막 업데이트**: $CURRENT_DATE
 
-> 📈 이 통계는 매일 자동으로 업데이트됩니다 (GitHub Actions)
-EOF
+        > 📈 이 통계는 매일 자동으로 업데이트됩니다 (GitHub Actions)"
         
-        # 플레이스홀더를 실제 값으로 교체
-        sed -i "s/LEARNING_DAYS_PLACEHOLDER/$LEARNING_DAYS/g" temp_stats.md
-        sed -i "s/JAVA_FILES_PLACEHOLDER/$JAVA_FILES/g" temp_stats.md  
-        sed -i "s/CLASS_COUNT_PLACEHOLDER/$CLASS_COUNT/g" temp_stats.md
-        sed -i "s/PROJECT_COUNT_PLACEHOLDER/$PROJECT_COUNT/g" temp_stats.md
-        sed -i "s/TOTAL_COMMITS_PLACEHOLDER/$TOTAL_COMMITS/g" temp_stats.md
-        sed -i "s/RECENT_COMMITS_PLACEHOLDER/$RECENT_COMMITS/g" temp_stats.md
-        sed -i "s/CURRENT_DATE_PLACEHOLDER/$CURRENT_DATE/g" temp_stats.md
-        
-        # README.md에서 기존 통계 섹션 교체
+        # README.md 처리
         if grep -q "## 📊 학습 통계" README.md; then
             echo "기존 통계 섹션을 업데이트합니다..."
-            # 통계 섹션 시작부터 다음 ## 섹션 또는 파일 끝까지 교체
-            awk '
-                /^## 📊 학습 통계/ { 
-                    while ((getline line < "temp_stats.md") > 0) print line
-                    close("temp_stats.md")
-                    # 다음 ## 섹션까지 건너뛰기
-                    while (getline && !/^## /) continue
-                    if (/^## /) print
-                    next
-                }
-                { print }
-            ' README.md > README_new.md
-            mv README_new.md README.md
+            
+            # 통계 섹션 이전 부분 저장
+            sed '/## 📊 학습 통계/,$d' README.md > temp_before.md
+            
+            # 통계 섹션 이후 부분 찾기 (다음 ## 섹션부터)
+            sed -n '/## 📊 학습 통계/,$ p' README.md | sed -n '/## [^📊]/,$ p' > temp_after.md
+            
+            # 새로운 README.md 생성
+            cat temp_before.md > README.md
+            echo "$STATS_CONTENT" >> README.md
+            
+            # 이후 섹션이 있으면 추가
+            if [ -s temp_after.md ]; then
+                echo "" >> README.md
+                cat temp_after.md >> README.md
+            fi
+            
+            # 임시 파일 정리
+            rm -f temp_before.md temp_after.md
         else
             echo "새로운 통계 섹션을 추가합니다..."
             echo "" >> README.md
-            cat temp_stats.md >> README.md
+            echo "$STATS_CONTENT" >> README.md
         fi
-        
-        # 임시 파일 정리
-        rm temp_stats.md
         
         echo "✅ README.md 통계 섹션 업데이트 완료!"
         
