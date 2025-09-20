@@ -1,11 +1,11 @@
-# .github/workflows/update-stats.yml (간단한 버전)
+# .github/workflows/update-stats.yml
 name: Update Learning Stats
 
 on:
   push:
     branches: [ main, master ]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *'  # 매일 자정에 실행
 
 jobs:
   update-stats:
@@ -15,9 +15,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0  # 전체 커밋 히스토리 가져오기
         
-    - name: Update Statistics with Shell
+    - name: Update Statistics
       run: |
         echo "📊 통계 업데이트 시작..."
         
@@ -27,18 +27,17 @@ jobs:
         # 클래스 수 계산
         CLASS_COUNT=$(grep -r "^public class\|^class\|^abstract class" --include="*.java" . 2>/dev/null | wc -l)
         
-        # 프로젝트 수 계산
-        PROJECT_COUNT=$(find . -name "Main.java" -o -name "*App.java" | wc -l)
+        # 프로젝트 수 계산 (Main.java, *App.java 파일이 있는 경우)
+        PROJECT_COUNT=$(find . -name "Main.java" -o -name "*App.java" 2>/dev/null | wc -l)
         
         # 총 커밋 수
-        TOTAL_COMMITS=$(git rev-list --all --count)
+        TOTAL_COMMITS=$(git rev-list --all --count 2>/dev/null || echo "0")
         
         # 최근 7일 커밋 수
-        RECENT_COMMITS=$(git log --since="7 days ago" --oneline | wc -l)
+        RECENT_COMMITS=$(git log --since="7 days ago" --oneline 2>/dev/null | wc -l)
         
         # 학습 일수 계산
-        if [ -n "$(git log --reverse --format="%ct" | head -n1)" ]; then
-            FIRST_COMMIT=$(git log --reverse --format="%ct" | head -n1)
+        if FIRST_COMMIT=$(git log --reverse --format="%ct" 2>/dev/null | head -n1) && [ -n "$FIRST_COMMIT" ]; then
             TODAY=$(date +%s)
             LEARNING_DAYS=$(( (TODAY - FIRST_COMMIT) / 86400 + 1 ))
         else
@@ -50,7 +49,7 @@ jobs:
         
         echo "수집된 통계:"
         echo "- 학습 일수: $LEARNING_DAYS일"
-        echo "- Java 파일: $JAVA_FILES개"
+        echo "- Java 파일: $JAVA_FILES개"  
         echo "- 클래스: $CLASS_COUNT개"
         echo "- 프로젝트: $PROJECT_COUNT개"
         echo "- 총 커밋: $TOTAL_COMMITS개"
@@ -60,49 +59,65 @@ jobs:
         cp README.md README.md.backup
         
         # 새로운 통계 섹션 생성
-        cat > temp_stats.md << EOF
+        cat > temp_stats.md << 'EOF'
 ## 📊 학습 통계
-- **총 학습 일수**: ${LEARNING_DAYS}일
-- **Java 파일 수**: ${JAVA_FILES}개
-- **작성한 클래스**: ${CLASS_COUNT}개
-- **완성한 프로젝트**: ${PROJECT_COUNT}개
-- **총 커밋 수**: ${TOTAL_COMMITS}개
-- **최근 7일 커밋**: ${RECENT_COMMITS}개
+- **총 학습 일수**: LEARNING_DAYS_PLACEHOLDER일
+- **Java 파일 수**: JAVA_FILES_PLACEHOLDER개
+- **작성한 클래스**: CLASS_COUNT_PLACEHOLDER개
+- **완성한 프로젝트**: PROJECT_COUNT_PLACEHOLDER개
+- **총 커밋 수**: TOTAL_COMMITS_PLACEHOLDER개
+- **최근 7일 커밋**: RECENT_COMMITS_PLACEHOLDER개
 
-**마지막 업데이트**: $CURRENT_DATE
+**마지막 업데이트**: CURRENT_DATE_PLACEHOLDER
 
 > 📈 이 통계는 매일 자동으로 업데이트됩니다 (GitHub Actions)
 EOF
         
-        # README.md 업데이트
+        # 플레이스홀더를 실제 값으로 교체
+        sed -i "s/LEARNING_DAYS_PLACEHOLDER/$LEARNING_DAYS/g" temp_stats.md
+        sed -i "s/JAVA_FILES_PLACEHOLDER/$JAVA_FILES/g" temp_stats.md  
+        sed -i "s/CLASS_COUNT_PLACEHOLDER/$CLASS_COUNT/g" temp_stats.md
+        sed -i "s/PROJECT_COUNT_PLACEHOLDER/$PROJECT_COUNT/g" temp_stats.md
+        sed -i "s/TOTAL_COMMITS_PLACEHOLDER/$TOTAL_COMMITS/g" temp_stats.md
+        sed -i "s/RECENT_COMMITS_PLACEHOLDER/$RECENT_COMMITS/g" temp_stats.md
+        sed -i "s/CURRENT_DATE_PLACEHOLDER/$CURRENT_DATE/g" temp_stats.md
+        
+        # README.md에서 기존 통계 섹션 교체
         if grep -q "## 📊 학습 통계" README.md; then
-            # 기존 통계 섹션을 새 통계로 교체
+            echo "기존 통계 섹션을 업데이트합니다..."
+            # 통계 섹션 시작부터 다음 ## 섹션 또는 파일 끝까지 교체
             awk '
                 /^## 📊 학습 통계/ { 
                     while ((getline line < "temp_stats.md") > 0) print line
                     close("temp_stats.md")
-                    while (getline && !/^##/) continue
-                    if (/^##/) print
+                    # 다음 ## 섹션까지 건너뛰기
+                    while (getline && !/^## /) continue
+                    if (/^## /) print
                     next
                 }
                 { print }
             ' README.md > README_new.md
             mv README_new.md README.md
         else
-            # 통계 섹션이 없으면 맨 끝에 추가
+            echo "새로운 통계 섹션을 추가합니다..."
             echo "" >> README.md
             cat temp_stats.md >> README.md
         fi
         
         # 임시 파일 정리
-        rm temp_stats.md README.md.backup
+        rm temp_stats.md
         
-        echo "✅ 통계 업데이트 완료!"
+        echo "✅ README.md 통계 섹션 업데이트 완료!"
         
     - name: Commit and push if changed
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add README.md
-        git diff --staged --quiet || git commit -m "📊 학습 통계 자동 업데이트"
-        git push
+        if git diff --staged --quiet; then
+          echo "변경사항이 없습니다."
+        else
+          git commit -m "📊 학습 통계 자동 업데이트"
+          git push
+          echo "✅ 변경사항이 커밋되고 푸시되었습니다!"
+        fi
