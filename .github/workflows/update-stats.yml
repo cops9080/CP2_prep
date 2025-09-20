@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main, master ]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 15 * * *'  # 한국 시간 자정 (UTC 15:00 = KST 00:00)
 
 jobs:
   update-stats:
@@ -16,6 +16,13 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Set timezone to Asia/Seoul
+      run: |
+        sudo timedatectl set-timezone Asia/Seoul
+        echo "🇰🇷 한국 시간으로 설정 완료:"
+        date
         
     - name: Update Statistics
       run: |
@@ -44,8 +51,8 @@ jobs:
             LEARNING_DAYS=1
         fi
         
-        # 현재 날짜
-        CURRENT_DATE=$(date '+%Y.%m.%d %H:%M')
+        # 현재 날짜 (한국 시간)
+        CURRENT_DATE=$(date '+%Y.%m.%d %H:%M (KST)')
         
         echo "수집된 통계:"
         echo "- 학습 일수: $LEARNING_DAYS일"
@@ -100,13 +107,14 @@ jobs:
         
     - name: Commit and push if changed
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.email "cops9080@users.noreply.github.com"
+        git config --local user.name "cops9080"
         git add README.md
         if git diff --staged --quiet; then
           echo "변경사항이 없습니다."
         else
-          git commit -m "📊 학습 통계 자동 업데이트"
+          git commit -m "📊 [cops9080] 학습 통계 자동 업데이트 (한국시간)"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git push
           echo "✅ 변경사항이 커밋되고 푸시되었습니다!"
         fi
