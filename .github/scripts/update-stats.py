@@ -3,14 +3,22 @@
 """
 GitHub Actions용 학습 통계 자동 업데이트 스크립트
 파일 위치: .github/scripts/update_stats.py
+한국 시간 (UTC+9) 적용
 """
 
 import os
 import re
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import glob
 import sys
+
+# 한국 시간대 설정
+KST = timezone(timedelta(hours=9))
+
+def get_kst_time():
+    """한국 시간으로 현재 시간 반환"""
+    return datetime.now(KST)
 
 def run_git_command(command):
     """Git 명령어를 안전하게 실행"""
@@ -124,13 +132,14 @@ def get_git_stats():
         total_commits_result = run_git_command('git rev-list --all --count')
         total_commits = int(total_commits_result) if total_commits_result and total_commits_result.isdigit() else 0
         
-        # 첫 번째 커밋 날짜로 학습 시작일 계산
+        # 첫 번째 커밋 날짜로 학습 시작일 계산 (한국 시간으로 변환)
         first_commit_result = run_git_command('git log --reverse --format="%ct" | head -n1')
         
         if first_commit_result and first_commit_result.isdigit():
             first_commit_timestamp = int(first_commit_result)
-            start_date = datetime.fromtimestamp(first_commit_timestamp).date()
-            today = datetime.now().date()
+            # UTC 타임스탬프를 한국 시간으로 변환
+            start_date = datetime.fromtimestamp(first_commit_timestamp, KST).date()
+            today = get_kst_time().date()
             learning_days = (today - start_date).days + 1
         else:
             learning_days = 1
@@ -182,8 +191,8 @@ def update_readme_stats():
         print(f"❌ README.md 읽기 오류: {e}")
         return False
     
-    # 현재 시간
-    current_time = datetime.now().strftime('%Y.%m.%d %H:%M')
+    # 현재 시간 (한국 시간)
+    current_time = get_kst_time().strftime('%Y.%m.%d %H:%M (KST)')
     
     # 새로운 통계 섹션 생성
     stats_section = f"""## 📊 학습 통계
@@ -230,8 +239,10 @@ def update_readme_stats():
 
 def main():
     """메인 실행 함수"""
-    print("🚀 cops9080의 Java GUI 학습 통계 업데이트 시작")
-    print("-" * 50)
+    kst_now = get_kst_time()
+    print(f"🚀 cops9080의 Java GUI 학습 통계 업데이트 시작")
+    print(f"🇰🇷 현재 한국 시간: {kst_now.strftime('%Y년 %m월 %d일 %H시 %M분 (KST)')}")
+    print("-" * 60)
     
     # 현재 작업 디렉토리 확인
     current_dir = os.getcwd()
