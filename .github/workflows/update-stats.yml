@@ -1,11 +1,11 @@
-# .github/workflows/update-stats.yml
+# .github/workflows/update-stats.yml (간단한 버전)
 name: Update Learning Stats
 
 on:
   push:
     branches: [ main, master ]
   schedule:
-    - cron: '0 0 * * *'  # 매일 자정에 실행
+    - cron: '0 0 * * *'
 
 jobs:
   update-stats:
@@ -15,26 +15,94 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # 전체 커밋 히스토리 가져오기
+        fetch-depth: 0
         
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        
-    - name: Install dependencies
+    - name: Update Statistics with Shell
       run: |
-        pip install PyGithub gitpython
+        echo "📊 통계 업데이트 시작..."
         
-    - name: Update Statistics
-      run: python .github/scripts/update_stats.py
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Java 파일 수 계산
+        JAVA_FILES=$(find . -name "*.java" -not -path "./.git/*" | wc -l)
+        
+        # 클래스 수 계산
+        CLASS_COUNT=$(grep -r "^public class\|^class\|^abstract class" --include="*.java" . 2>/dev/null | wc -l)
+        
+        # 프로젝트 수 계산
+        PROJECT_COUNT=$(find . -name "Main.java" -o -name "*App.java" | wc -l)
+        
+        # 총 커밋 수
+        TOTAL_COMMITS=$(git rev-list --all --count)
+        
+        # 최근 7일 커밋 수
+        RECENT_COMMITS=$(git log --since="7 days ago" --oneline | wc -l)
+        
+        # 학습 일수 계산
+        if [ -n "$(git log --reverse --format="%ct" | head -n1)" ]; then
+            FIRST_COMMIT=$(git log --reverse --format="%ct" | head -n1)
+            TODAY=$(date +%s)
+            LEARNING_DAYS=$(( (TODAY - FIRST_COMMIT) / 86400 + 1 ))
+        else
+            LEARNING_DAYS=1
+        fi
+        
+        # 현재 날짜
+        CURRENT_DATE=$(date '+%Y.%m.%d %H:%M')
+        
+        echo "수집된 통계:"
+        echo "- 학습 일수: $LEARNING_DAYS일"
+        echo "- Java 파일: $JAVA_FILES개"
+        echo "- 클래스: $CLASS_COUNT개"
+        echo "- 프로젝트: $PROJECT_COUNT개"
+        echo "- 총 커밋: $TOTAL_COMMITS개"
+        echo "- 최근 커밋: $RECENT_COMMITS개"
+        
+        # README.md 백업
+        cp README.md README.md.backup
+        
+        # 새로운 통계 섹션 생성
+        cat > temp_stats.md << EOF
+## 📊 학습 통계
+- **총 학습 일수**: ${LEARNING_DAYS}일
+- **Java 파일 수**: ${JAVA_FILES}개
+- **작성한 클래스**: ${CLASS_COUNT}개
+- **완성한 프로젝트**: ${PROJECT_COUNT}개
+- **총 커밋 수**: ${TOTAL_COMMITS}개
+- **최근 7일 커밋**: ${RECENT_COMMITS}개
+
+**마지막 업데이트**: $CURRENT_DATE
+
+> 📈 이 통계는 매일 자동으로 업데이트됩니다 (GitHub Actions)
+EOF
+        
+        # README.md 업데이트
+        if grep -q "## 📊 학습 통계" README.md; then
+            # 기존 통계 섹션을 새 통계로 교체
+            awk '
+                /^## 📊 학습 통계/ { 
+                    while ((getline line < "temp_stats.md") > 0) print line
+                    close("temp_stats.md")
+                    while (getline && !/^##/) continue
+                    if (/^##/) print
+                    next
+                }
+                { print }
+            ' README.md > README_new.md
+            mv README_new.md README.md
+        else
+            # 통계 섹션이 없으면 맨 끝에 추가
+            echo "" >> README.md
+            cat temp_stats.md >> README.md
+        fi
+        
+        # 임시 파일 정리
+        rm temp_stats.md README.md.backup
+        
+        echo "✅ 통계 업데이트 완료!"
         
     - name: Commit and push if changed
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add README.md
-        git diff --staged --quiet || git commit -m "📊 Auto-update learning statistics"
+        git diff --staged --quiet || git commit -m "📊 학습 통계 자동 업데이트"
         git push
