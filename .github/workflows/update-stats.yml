@@ -1,0 +1,120 @@
+# .github/workflows/update-stats.yml
+name: Update Learning Stats
+
+on:
+  push:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 15 * * *'  # 한국 시간 자정 (UTC 15:00 = KST 00:00)
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Set timezone to Asia/Seoul
+      run: |
+        sudo timedatectl set-timezone Asia/Seoul
+        echo "🇰🇷 한국 시간으로 설정 완료:"
+        date
+        
+    - name: Update Statistics
+      run: |
+        echo "📊 통계 업데이트 시작..."
+        
+        # Java 파일 수 계산
+        JAVA_FILES=$(find . -name "*.java" -not -path "./.git/*" | wc -l)
+        
+        # 클래스 수 계산
+        CLASS_COUNT=$(grep -r "^public class\|^class\|^abstract class" --include="*.java" . 2>/dev/null | wc -l)
+        
+        # 프로젝트 수 계산
+        PROJECT_COUNT=$(find . -name "Main.java" -o -name "*App.java" 2>/dev/null | wc -l)
+        
+        # 총 커밋 수
+        TOTAL_COMMITS=$(git rev-list --all --count 2>/dev/null || echo "0")
+        
+        # 최근 7일 커밋 수
+        RECENT_COMMITS=$(git log --since="7 days ago" --oneline 2>/dev/null | wc -l)
+        
+        # 학습 일수 계산
+        if FIRST_COMMIT=$(git log --reverse --format="%ct" 2>/dev/null | head -n1) && [ -n "$FIRST_COMMIT" ]; then
+            TODAY=$(date +%s)
+            LEARNING_DAYS=$(( (TODAY - FIRST_COMMIT) / 86400 + 1 ))
+        else
+            LEARNING_DAYS=1
+        fi
+        
+        # 현재 날짜 (한국 시간)
+        CURRENT_DATE=$(date '+%Y.%m.%d %H:%M (KST)')
+        
+        echo "수집된 통계:"
+        echo "- 학습 일수: $LEARNING_DAYS일"
+        echo "- Java 파일: $JAVA_FILES개"
+        echo "- 클래스: $CLASS_COUNT개"
+        echo "- 프로젝트: $PROJECT_COUNT개"
+        echo "- 총 커밋: $TOTAL_COMMITS개"
+        echo "- 최근 커밋: $RECENT_COMMITS개"
+        
+        # 새로운 통계 섹션 생성
+        STATS_CONTENT="## 📊 학습 통계
+        - **총 학습 일수**: ${LEARNING_DAYS}일
+        - **Java 파일 수**: ${JAVA_FILES}개
+        - **작성한 클래스**: ${CLASS_COUNT}개
+        - **완성한 프로젝트**: ${PROJECT_COUNT}개
+        - **총 커밋 수**: ${TOTAL_COMMITS}개
+        - **최근 7일 커밋**: ${RECENT_COMMITS}개
+
+        **마지막 업데이트**: $CURRENT_DATE
+
+        > 📈 이 통계는 매일 자동으로 업데이트됩니다 (GitHub Actions)"
+        
+        # README.md 처리
+        if grep -q "## 📊 학습 통계" README.md; then
+            echo "기존 통계 섹션을 업데이트합니다..."
+            
+            # 통계 섹션 이전 부분 저장
+            sed '/## 📊 학습 통계/,$d' README.md > temp_before.md
+            
+            # 통계 섹션 이후 부분 찾기 (다음 ## 섹션부터)
+            sed -n '/## 📊 학습 통계/,$ p' README.md | sed -n '/## [^📊]/,$ p' > temp_after.md
+            
+            # 새로운 README.md 생성
+            cat temp_before.md > README.md
+            echo "$STATS_CONTENT" >> README.md
+            
+            # 이후 섹션이 있으면 추가
+            if [ -s temp_after.md ]; then
+                echo "" >> README.md
+                cat temp_after.md >> README.md
+            fi
+            
+            # 임시 파일 정리
+            rm -f temp_before.md temp_after.md
+        else
+            echo "새로운 통계 섹션을 추가합니다..."
+            echo "" >> README.md
+            echo "$STATS_CONTENT" >> README.md
+        fi
+        
+        echo "✅ README.md 통계 섹션 업데이트 완료!"
+        
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "cops9080@users.noreply.github.com"
+        git config --local user.name "cops9080"
+        git add README.md
+        if git diff --staged --quiet; then
+          echo "변경사항이 없습니다."
+        else
+          git commit -m "📊 [cops9080] 학습 통계 자동 업데이트 (한국시간)"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git push
+          echo "✅ 변경사항이 커밋되고 푸시되었습니다!"
+        fi
