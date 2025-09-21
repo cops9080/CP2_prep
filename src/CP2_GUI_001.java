@@ -1,5 +1,6 @@
 import javax.swing.*;
 
+//프레임 생성 방법 1
 public class CP2_GUI_001 {
     public static void main(String[] args) {
         //Graphical User Interface, GUI는 컴포넌트들로 구성됨
